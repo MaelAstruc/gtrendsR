@@ -15,7 +15,8 @@ gtrends(
   low_search_volume = FALSE,
   cookie_url = "http://trends.google.com/Cookies/NID",
   tz = 0,
-  onlyInterest = FALSE
+  onlyInterest = FALSE,
+  output = "all"
 )
 }
 \arguments{
@@ -64,7 +65,19 @@ to UTC. Note the parameter 'time' above is specified in UTC. E.g. choosing
 "time=2018-01-01T01 2018-01-01T03" and "tz=-120" will yield data between
 2018-01-01T03 and 2018-01-01T05, i.e. data specified to be in UTC+2.}
 
-\item{onlyInterest}{If you only want the interest over time set it to TRUE.}
+\item{onlyInterest}{*Deprecated* (please use output = "time" instead)
+If you only want the interest over time set it to TRUE.}
+
+\item{output}{A character string to select the outputs of interest.
+Non-selected outputs will return a NULL in the results. Valid options are:
+
+\itemize{
+  \item{"all" (default)}
+  \item{"time" : interest over time}
+  \item{"geo" : interest across countries/regions/cities}
+  \item{"topics" : related topics}
+  \item{"queries" : related queries}
+}}
 }
 \value{
 An object of class \sQuote{gtrends} (basically a list of data

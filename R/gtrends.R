@@ -49,7 +49,20 @@
 #' @param cookie_url A string specifying the URL from which to obtain cookies.
 #'   Default should work in general; should only be changed by advanced users.
 #'
-#' @param onlyInterest If you only want the interest over time set it to TRUE.
+#' @param onlyInterest *Deprecated* (please use output = "time" instead)
+#'   If you only want the interest over time set it to TRUE.
+#' 
+#' @param output A character string to select the outputs of interest.
+#'   Non-selected outputs will return a NULL in the results. Valid options are:
+#'   
+#'   \itemize{
+#'     \item{"all" (default)}
+#'     \item{"time" : interest over time}
+#'     \item{"geo" : interest across countries/regions/cities}
+#'     \item{"topics" : related topics}
+#'     \item{"queries" : related queries}
+#'   }
+#'   
 #'
 #' @section Categories: The package includes a complete list of categories that
 #'   can be used to narrow requests. These can be accessed using
@@ -125,7 +138,8 @@ gtrends <- function(keyword = NA,
                     low_search_volume = FALSE,
                     cookie_url = "http://trends.google.com/Cookies/NID",
                     tz = 0, # This equals UTC
-                    onlyInterest = FALSE) {
+                    onlyInterest = FALSE,
+                    output = "all") {
   stopifnot(
     # One  vector should be a multiple of the other
     (length(keyword) %% length(geo) == 0) || (length(geo) %% length(keyword) == 0) || (length(time) %% length(keyword) == 0),
@@ -137,9 +151,17 @@ gtrends <- function(keyword = NA,
     is.character(hl),
     hl %in% language_codes$code,
     length(cookie_url) == 1,
-    is.character(cookie_url)
+    is.character(cookie_url),
+    is.character(output),
+    all(output %in% c("all", "time", "geo", "topics", "queries"))
   )
-
+  
+  if (onlyInterest) {
+    warning("argument 'onlyInterest = TRUE' is deprecated;
+             please use 'output = time' instead.")
+    output <- "time"
+  }
+  
   ## Check if valid geo. There are no official source(s) that we can use to
   ## validate the entered geo code. However, we can use a regular expression to
   ## verify if the structure is valid.
@@ -198,40 +220,45 @@ gtrends <- function(keyword = NA,
   # Now that we have tokens, we can process the queries
   # ****************************************************************************
 
-  interest_over_time <- interest_over_time(widget, comparison_item, tz)
+  res <- list(
+    interest_over_time = NULL,
+    interest_by_country = NULL,
+    interest_by_region = NULL,
+    interest_by_dma = NULL,
+    interest_by_city = NULL,
+    related_topics = NULL,
+    related_queries = NULL
+  )
   
-  if (is.null(interest_over_time)) {
-    stop(
-      "No data returned by the query. Consider changing search parameters.", 
-      call. = FALSE
-    )
+  if ("all" %in% output) output <- c("time", "geo", "topics", "queries")
+  
+  if ("time" %in% output) {
+    res$interest_over_time <- interest_over_time(widget, comparison_item, tz)
   }
-
-  if (!onlyInterest) {
-    interest_by_region <-
-      interest_by_region(
-        widget,
-        comparison_item,
-        low_search_volume,
-        compared_breakdown,
-        tz
-      )
-
-    related_topics <- related_topics(widget, comparison_item, hl, tz)
-    related_queries <- related_queries(widget, comparison_item, tz, hl)
-
-    res <- list(
-      interest_over_time = interest_over_time,
-      interest_by_country = do.call(rbind, interest_by_region[names(interest_by_region) == "country"]),
-      interest_by_region = do.call(rbind, interest_by_region[names(interest_by_region) == "region"]),
-      interest_by_dma = do.call(rbind, interest_by_region[names(interest_by_region) == "dma"]),
-      interest_by_city = do.call(rbind, interest_by_region[names(interest_by_region) == "city"]),
-      related_topics = related_topics,
-      related_queries = related_queries
+  
+  if ("geo" %in% output) {
+    interest_by_geo <- interest_by_region(
+      widget,
+      comparison_item,
+      low_search_volume,
+      compared_breakdown,
+      tz
     )
-  } else {
-    res <- list(interest_over_time = interest_over_time)
+    
+    res$interest_by_country <- do.call(rbind, interest_by_geo[names(interest_by_geo) == "country"])
+    res$interest_by_region <- do.call(rbind, interest_by_geo[names(interest_by_region) == "region"])
+    res$interest_by_dma <- do.call(rbind, interest_by_geo[names(interest_by_geo) == "dma"])
+    res$interest_by_city <- do.call(rbind, interest_by_geo[names(interest_by_geo) == "city"])
   }
+  
+  if ("topics" %in% output) {
+    res$related_topics <- related_topics(widget, comparison_item, hl, tz)
+  }
+  
+  if ("queries" %in% output) {
+    res$related_queries <- related_queries(widget, comparison_item, hl, tz)
+  }
+  
   ## Remove row.names
   res <- lapply(res, function(x) {
     row.names(x) <- NULL
